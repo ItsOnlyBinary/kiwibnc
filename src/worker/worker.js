@@ -249,7 +249,7 @@ async function loadConnections(app) {
         if (row.type === ConnectionDict.TYPE_INCOMING) {
             app.cons.loadFromId(row.conid, row.type);
         } else if (row.type === ConnectionDict.TYPE_OUTGOING) {
-            let con = await app.cons.loadFromId(row.conid, row.type);            
+            let con = await app.cons.loadFromId(row.conid, row.type);
             if (con.state.connected) {
                 con.open();
             }
@@ -285,7 +285,7 @@ async function initWebserver(app) {
     app.webserver.context.basePath = basePath;
 
 	let router = app.webserver.router = new KoaRouter({
-        prefix: basePath, 
+        prefix: basePath,
     });
 
     app.webserver.use(koaBody({ multipart: true }));
@@ -295,8 +295,17 @@ async function initWebserver(app) {
     let staticServ = koaStatic(app.conf.relativePath(app.conf.get('webserver.public_dir', './public_http')));
     app.webserver.use(KoaMount(basePath || '/', staticServ));
 
+    if (!app.conf.get('webserver.enabled')) {
+        return;
+    }
+
     let sockPath = app.conf.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
-    if (app.conf.get('webserver.enabled') && sockPath) {  
+
+    if (process.platform === "win32" || !sockPath) {
+        let listenPort = app.conf.get('webserver.bind_port', 8080);
+        app.webserver.listen(listenPort);
+        l.debug(`Webserver running :${listenPort}`);
+    } else {
         try {
             // Make sure the socket doesn't already exist
             fs.unlinkSync(sockPath);

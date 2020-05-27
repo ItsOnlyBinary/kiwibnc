@@ -19,10 +19,16 @@ module.exports = class SocketServer extends EventEmitter {
         // We need a HTTP server for the WebSocket server to bind on as we can pass a TCP
         // connection to the HTTP server but not the WebSocket server directly.
         let httpd = http.createServer((request, response) => {
-            let sockPath = this.appConfig.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
-            if (!this.appConfig.get('webserver.enabled') || !sockPath) {
+            if (!this.appConfig.get('webserver.enabled')) {
                 return;
             }
+
+            let sockPath = this.appConfig.get('webserver.bind_socket', '/tmp/kiwibnc_httpd.sock');
+            let listenPort = this.appConfig.get('webserver.bind_port', 8080);
+
+            let target = process.platform === "win32" || !sockPath ?
+                `http://localhost:${listenPort}` :
+                { socketPath: sockPath };
 
             // Reverse proxy this HTTP request to the unix socket where the worker
             // process will pick it up and handle
@@ -30,9 +36,7 @@ module.exports = class SocketServer extends EventEmitter {
                 proxyTimeout: 5000,
                 timeout: 5000,
                 xfwd: true,
-                target: {
-                    socketPath: sockPath
-                },
+                target: target,
             });
         });
         let proxy = httpProxy.createProxyServer({});
@@ -160,7 +164,7 @@ class SocketTypeChecker extends EventEmitter {
                 // Keep waiting for all the headers to arrive
                 return;
             }
-            
+
             if (str.includes('UPGRADE: WEBSOCKET') && str.includes('CONNECTION: UPGRADE')) {
                 // A websocket connection
                 clean();
