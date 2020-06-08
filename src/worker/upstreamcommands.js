@@ -3,7 +3,7 @@ const hooks = require('./hooks');
 
 let commands = Object.create(null);
 
-module.exports.run = async function run(msg, con) {   
+module.exports.run = async function run(msg, con) {
     let hook = await hooks.emit('message_from_upstream', {client: con, message: msg});
     if (hook.prevent) {
         return;
@@ -266,7 +266,7 @@ commands['376'] = async function(msg, con) {
         con.forEachClient((clientCon) => {
             clientCon.registerClient();
         });
-    
+
         for (let buffName in con.state.buffers) {
             let b = con.state.buffers[buffName];
             if (b.isChannel) {
@@ -469,6 +469,8 @@ commands['353'] = async function(msg, con) {
     let bufferName = msg.params[2];
     let buffer = con.state.getBuffer(bufferName) || con.state.addBuffer(bufferName, con);
 
+    console.log('receiving_names', bufferName);
+
     if (!con.state.tempGet('receiving_names')) {
         // This is the start of a new NAMES list. Clear out the old for this new one
         await con.state.tempSet('receiving_names', true);
@@ -521,6 +523,7 @@ commands['353'] = async function(msg, con) {
 commands['366'] = async function(msg, con) {
     await con.state.tempSet('receiving_names', null);
     let buffer = con.state.getBuffer(msg.params[1]);
+    console.log('receiving_names_complete', buffer);
     if (buffer) {
         con.forEachClient(c => c.sendNames(buffer));
     }

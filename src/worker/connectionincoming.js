@@ -292,9 +292,11 @@ class ConnectionIncoming {
             return;
         }
 
+        console.log('sendNames', buffer);
+
         let fullMask = this.state.caps.has('userhost-in-names');
         let multiPrefix = this.state.caps.has('multi-prefix');
-    
+
         let names = [];
         for (let n in buffer.users) {
             let user = buffer.users[n];
@@ -304,7 +306,7 @@ class ConnectionIncoming {
             let prefix = multiPrefix ?
                 user.prefixes :
                 user.prefixes[0] || '';
-    
+
             names.push(prefix + mask);
         }
 
