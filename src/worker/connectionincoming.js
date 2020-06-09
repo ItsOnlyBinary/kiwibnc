@@ -292,10 +292,12 @@ class ConnectionIncoming {
             return;
         }
 
-        console.log('sendNames', buffer);
-
         let fullMask = this.state.caps.has('userhost-in-names');
         let multiPrefix = this.state.caps.has('multi-prefix');
+
+        // console.log('sendNames');
+        // console.log('client caps', this.state.caps);
+        // console.log('server caps', upstream.state.caps);
 
         let names = [];
         for (let n in buffer.users) {
@@ -314,9 +316,8 @@ class ConnectionIncoming {
         // limit then we need to break it up into chunks
 
         let currentLine = '';
-        // TODO: Correctly track the channel status (@ = etc)
         // :irc.network.org 353 Guest25 @ #channel :@Guest25
-        let args = ['353', this.state.nick, '=', buffer.name];
+        let args = ['353', this.state.nick, buffer.status, buffer.name];
         let len = args.reduce((prevVal, curVal) => prevVal + curVal.length, 0);
         len += 2 + upstream.state.serverPrefix.length; // 2 = the : before and space after
         len += args.length; // the spaces between the args
@@ -335,7 +336,7 @@ class ConnectionIncoming {
             this.writeMsgFrom(upstream.state.serverPrefix, ...args.concat(currentLine));
         }
 
-        this.writeMsgFrom(upstream.state.serverPrefix, '366', this.state.nick, buffer.name, 'End of /NAMES list.');
+        this.writeMsgFrom(upstream.state.serverPrefix, '366', this.state.nick, buffer.name, 'End of /NAMES list. 3');
     }
 
     // Handy helper to reach the hotReloadClientCommands() function

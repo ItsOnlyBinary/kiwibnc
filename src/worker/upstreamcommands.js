@@ -1,4 +1,4 @@
-const { mParam, mParamU, parseMask } = require('../libs/helpers');
+const { mParam, mParamU, parseMask, parseMode, parsePrefixes, getModesStatus } = require('../libs/helpers');
 const hooks = require('./hooks');
 
 let commands = Object.create(null);
@@ -313,6 +313,7 @@ commands.JOIN = async function(msg, con) {
     let chan = con.state.getBuffer(chanName) || con.state.addBuffer(chanName, con);
 
     if (msg.nick.toLowerCase() !== con.state.nick.toLowerCase()) {
+        console.log('test', msg.nick);
         // Someone else joined the channel
         chan.addUser(msg.nick, {
             host: msg.hostname || undefined,
@@ -321,6 +322,8 @@ commands.JOIN = async function(msg, con) {
 
         return;
     }
+
+    con.writeLine('MODE', chanName);
 
     chan.joined = true;
     await con.state.save();
@@ -468,8 +471,10 @@ commands.ERROR = async function(msg, con) {
 commands['353'] = async function(msg, con) {
     let bufferName = msg.params[2];
     let buffer = con.state.getBuffer(bufferName) || con.state.addBuffer(bufferName, con);
+    // console.log('353', msg);
+    con.forEachClient(c => c.writeMsg('getting names...'));
 
-    console.log('receiving_names', bufferName);
+    // console.log('receiving_names', bufferName);
 
     if (!con.state.tempGet('receiving_names')) {
         // This is the start of a new NAMES list. Clear out the old for this new one
@@ -477,17 +482,10 @@ commands['353'] = async function(msg, con) {
         buffer.users = Object.create(null);
     }
 
-    let ircdPrefixes = [];
-    // Parse (ov)@+ into [{mode:"o",symbol:"@"},{mode:"v",symbol:"+"}]
-    let matches = /\(([^)]*)\)(.*)/.exec(con.iSupportToken('PREFIX') || '');
-    if (matches && matches.length === 3) {
-        for (let j = 0; j < matches[2].length; j++) {
-            ircdPrefixes.push({
-                symbol: matches[2].charAt(j),
-                mode: matches[1].charAt(j)
-            });
-        }
-    }
+    let ircdPrefixes = parsePrefixes(con.iSupportToken('PREFIX'));
+
+    // Store buffer status ('@' || '=' || '*')
+    buffer.status = msg.params[1];
 
     let userMasks = msg.params[msg.params.length - 1].split(' ');
     userMasks.forEach(mask => {
@@ -517,17 +515,72 @@ commands['353'] = async function(msg, con) {
     });
 
     await con.state.save();
+    return false;
 };
 
 // RPL_ENDOFNAMES
 commands['366'] = async function(msg, con) {
+    // console.log('366', msg);
+    con.forEachClient(c => c.writeMsg('got names!'));
     await con.state.tempSet('receiving_names', null);
     let buffer = con.state.getBuffer(msg.params[1]);
-    console.log('receiving_names_complete', buffer);
+    // console.log('receiving_names_complete', buffer);
     if (buffer) {
         con.forEachClient(c => c.sendNames(buffer));
     }
+    return false;
 };
+
+commands.MODE = async function(msg, con) {
+    // console.log('MODE', msg);
+    const raw_modes = msg.params[1];
+    const raw_params = msg.params.slice(2);
+    const parsedModes = parseMode(con, raw_modes, raw_params);
+
+    let buffer = con.state.getBuffer(msg.params[0]);
+
+    if (!buffer) {
+        return;
+    }
+
+    // console.log('MODE', buffer);
+
+    parsedModes.forEach((m) => {
+        console.log('MODE', m);
+        if (m.param) {
+            return;
+        }
+        if (m.mode[0] === '+') {
+            buffer.modes += m.mode[1];
+        } else {
+            buffer.modes = buffer.modes.replace(m.mode[1], '');
+        }
+    });
+    buffer.status = getModesStatus(buffer);
+    console.log('BM1', buffer.modes);
+}
+
+commands['324'] = async function(msg, con) {
+    let buffer = con.state.getBuffer(msg.params[1]);
+
+    if (!buffer) {
+        return;
+    }
+    buffer.modes = msg.params[2];
+    console.log('BM2', buffer.modes);
+}
+
+// RPL_WHOREPLY
+commands['352'] = async function(msg, con) {
+
+
+}
+
+// RPL_WHOSPCRPL WHO #testers %cuhsnfdaor
+commands['354'] = async function(msg, con) {
+
+
+}
 
 function bufferNameIfPm(message, nick, messageNickIdx) {
     if (nick.toLowerCase() === (message.params[messageNickIdx] || '').toLowerCase()) {

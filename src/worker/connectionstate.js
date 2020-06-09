@@ -15,6 +15,8 @@ class IrcBuffer {
         this.name = name;
         this.key = '';
         this.joined = false;
+        this.status = '=';
+        this.modes = '';
         this.topic = '';
         this.isChannel = upstreamCon ?
             upstreamCon.isChannelName(name) :
@@ -112,7 +114,7 @@ class ConnectionState {
         // Temporary misc data such as CAP negotiation status
         this.tempData = {};
     }
-    
+
     async maybeLoad() {
         if (!this.loaded) {
             await this.load();
@@ -184,7 +186,7 @@ class ConnectionState {
             this.tlsverify = !!net.tlsverify;
             this.sasl = { account: net.sasl_account || '', password: net.sasl_pass || '' };
             this.authNetworkName = net.name;
-            
+
             // Add any channels that we don't already have
             (net.channels || '').split(',').forEach(chanName => {
                 if (chanName.trim()) {
