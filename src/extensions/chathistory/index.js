@@ -93,8 +93,7 @@ async function commandBetween(msg, con, messageDb) {
             toMsgRef.value = dateToTs(toMsgRef.value);
         }
         messages = await messageDb.getMessagesBetween(
-            con.state.authUserId,
-            con.state.authNetworkId,
+            con.state,
             target,
             fromMsgRef,
             toMsgRef,
@@ -123,8 +122,7 @@ async function commandLatest(msg, con, messageDb) {
     // We want to get messages between msgRef and NOW(), max paramLimit messages
     if (msgRef.type === 'timestamp') {
         messages = await messageDb.getMessagesBeforeTime(
-            con.state.authUserId,
-            con.state.authNetworkId,
+            con.state,
             target,
             Date.now(),
             paramLimit,
@@ -157,16 +155,14 @@ async function commandBeforeOrAfter(msg, con, messageDb) {
 
         if (subCmd === 'AFTER') {
             messages = await messageDb.getMessagesFromTime(
-                con.state.authUserId,
-                con.state.authNetworkId,
+                con.state,
                 target,
                 ts,
                 paramLimit,
             );
         } else if (subCmd === 'BEFORE') {
             messages = await messageDb.getMessagesBeforeTime(
-                con.state.authUserId,
-                con.state.authNetworkId,
+                con.state,
                 target,
                 ts,
                 paramLimit,
@@ -178,16 +174,14 @@ async function commandBeforeOrAfter(msg, con, messageDb) {
 
         if (subCmd === 'AFTER') {
             messages = await messageDb.getMessagesFromMsgId(
-                con.state.authUserId,
-                con.state.authNetworkId,
+                con.state,
                 target,
                 msgid,
                 paramLimit,
             );
         } else if (subCmd === 'BEFORE') {
             messages = await messageDb.getMessagesBeforeMsgId(
-                con.state.authUserId,
-                con.state.authNetworkId,
+                con.state,
                 target,
                 msgid,
                 paramLimit,

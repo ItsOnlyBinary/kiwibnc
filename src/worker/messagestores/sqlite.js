@@ -89,7 +89,10 @@ class SqliteMessageStore {
         return null;
     }
 
-    async getMessagesFromMsgId(userId, networkId, buffer, fromMsgId, length) {
+    async getMessagesFromMsgId(conState, buffer, fromMsgId, length) {
+        const userId = conState.authUserId;
+        const networkId = conState.authNetworkId;
+
         let messagesTmr = this.stats.timerStart('lookup.time');
 
         let stmt = this.db.prepare(`
@@ -121,13 +124,16 @@ class SqliteMessageStore {
             limit: length || 50,
         });
 
-        let messages = dbRowsToMessage(rows);
+        let messages = dbRowsToMessage(conState, rows);
 
         messagesTmr.stop();
         return messages;
     }
 
-    async getMessagesFromTime(userId, networkId, buffer, fromTime, length) {
+    async getMessagesFromTime(conState, buffer, fromTime, length) {
+        const userId = conState.authUserId;
+        const networkId = conState.authNetworkId;
+
         let messagesTmr = this.stats.timerStart('lookup.time');
 
         let stmt = this.db.prepare(`
@@ -159,13 +165,16 @@ class SqliteMessageStore {
             limit: length || 50,
         });
 
-        let messages = dbRowsToMessage(rows);
+        let messages = dbRowsToMessage(conState, rows);
 
         messagesTmr.stop();
         return messages;
     }
 
-    async getMessagesBeforeMsgId(userId, networkId, buffer, msgId, length) {
+    async getMessagesBeforeMsgId(conState, buffer, msgId, length) {
+        const userId = conState.authUserId;
+        const networkId = conState.authNetworkId;
+
         let messagesTmr = this.stats.timerStart('lookup.time');
 
         let stmt = this.db.prepare(`
@@ -199,13 +208,16 @@ class SqliteMessageStore {
         // We ordered the messages DESC in the query, so reverse them back into the correct order
         rows.reverse();
 
-        let messages = dbRowsToMessage(rows);
+        let messages = dbRowsToMessage(conState, rows);
 
         messagesTmr.stop();
         return messages;
     }
 
-    async getMessagesBeforeTime(userId, networkId, buffer, fromTime, length) {
+    async getMessagesBeforeTime(conState, buffer, fromTime, length) {
+        const userId = conState.authUserId;
+        const networkId = conState.authNetworkId;
+
         let messagesTmr = this.stats.timerStart('lookup.time');
 
         let stmt = this.db.prepare(`
@@ -239,13 +251,16 @@ class SqliteMessageStore {
         // We ordered the messages DESC in the query, so reverse them back into the correct order
         rows.reverse();
 
-        let messages = dbRowsToMessage(rows);
+        let messages = dbRowsToMessage(conState, rows);
 
         messagesTmr.stop();
         return messages;
     }
 
-    async getMessagesBetween(userId, networkId, buffer, from, to, length) {
+    async getMessagesBetween(conState, buffer, from, to, length) {
+        const userId = conState.authUserId;
+        const networkId = conState.authNetworkId;
+
         let messagesTmr = this.stats.timerStart('lookup.time');
 
         let fromSql = '';
@@ -301,7 +316,7 @@ class SqliteMessageStore {
         // We ordered the messages DESC in the query, so reverse them back into the correct order
         rows.reverse();
 
-        let messages = dbRowsToMessage(rows);
+        let messages = dbRowsToMessage(conState, rows);
 
         messagesTmr.stop();
         return messages;
@@ -351,6 +366,10 @@ class SqliteMessageStore {
             data = message.params[1];
             params = message.params.slice(0, message.params.length - 1).join(' ');
             msgId = message.tags['draft/msgid'] || message.tags['msgid'] || '';
+            if (conState.nick.toLowerCase() === message.params[0].toLowerCase()) {
+                // is PM
+                message.tags['kiwibnc/isPM'] = true;
+            }
         } else if (message.command === 'NOTICE') {
             type = MSG_TYPE_NOTICE;
             bufferName = Helpers.extractBufferName(upstreamCon, message, 0);
@@ -358,6 +377,10 @@ class SqliteMessageStore {
             data = message.params[1];
             params = message.params.slice(0, message.params.length - 1).join(' ');
             msgId = message.tags['draft/msgid'] || message.tags['msgid'] || '';
+            if (conState.nick.toLowerCase() === message.params[0].toLowerCase()) {
+                // is PM
+                message.tags['kiwibnc/isPM'] = true;
+            }
         }
 
         if (!type) {
@@ -402,7 +425,7 @@ class SqliteMessageStore {
 
 module.exports = SqliteMessageStore;
 
-function dbRowsToMessage(rows) {
+function dbRowsToMessage(conState, rows) {
     return rows.map((row) => {
         let m = new IrcMessage();
         if (row.type === MSG_TYPE_PRIVMSG) {
@@ -417,6 +440,10 @@ function dbRowsToMessage(rows) {
         m.tags = JSON.parse(row.msgtags);
         m.tags.time = m.tags.time || Helpers.isoTime(new Date(row.time));
         m.params = row.params.split(' ');
+        if (m.tags['kiwibnc/isPM']) {
+            m.params[0] = conState.nick;
+        }
+        delete m.tags['kiwibnc/isPM'];
         m.params.push(row.data);
 
         return m;
