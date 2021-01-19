@@ -18,7 +18,7 @@ hotReloadClientCommands();
 class ConnectionIncoming {
     constructor(_id, db, userDb, messages, queue, conDict) {
         let id = _id || uuidv4();
-        this.state = new ConnectionState(id, db);
+        this.state = new ConnectionState(this, id, db);
         this.state.type = 1;
         this.queue = queue;
         this.conDict = conDict;
@@ -62,8 +62,8 @@ class ConnectionIncoming {
         let upstream = this.conDict.findUsersOutgoingConnection(this.state.authUserId, this.state.authNetworkId);
 
         // If we found an upstream, add this incoming connection to it
-        if (upstream) {
-            l.trace('upstream() Found upstream, caching');
+        if (this.state.authNetworkId && upstream) {
+            l.trace('upstream() Found upstream, caching', this.state.authNetworkId, upstream.id, this.id);
             this.cachedUpstreamId = upstream.id;
             upstream.state.linkIncomingConnection(this.id);
         } else {
@@ -192,7 +192,9 @@ class ConnectionIncoming {
     }
 
     async registerClient() {
+        console.log('register client 1');
         let upstream = this.upstream;
+        console.log('register client 2');
         this.state.nick = upstream.state.nick;
         this.state.username = upstream.state.username;
         this.state.realname = upstream.state.realname;
